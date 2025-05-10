@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Collaborative Canvas</title>
+    <link rel="stylesheet" href="/static/style.css" />
+  </head>
+  <body>
+    <div class="container">
+      {% if role == 'admin' %}
+      <aside class="sidebar">
+        <h3>Select Image</h3>
+        <div class="image-grid">
+          <img src="/static/img1.png" data-src="/static/img1.png" />
+          <img src="/static/img2.png" data-src="/static/img2.png" />
+          <img src="/static/img3.png" data-src="/static/img3.png" />
+          <img src="/static/blank.png" data-src="/static/blank.png" />
+        </div>
+        <hr />
+        <h3>Participants</h3>
+        <ul id="user-list"></ul>
+      </aside>
+
+      {% endif %}
+      <main class="canvas-area">
+        <div id="canvas-container">
+          <img id="main-image" src="/static/img1.png" />
+          <div id="cursor-container"></div>
+        </div>
+      </main>
+    </div>
+    <script>
+      const sessionCode = "{{ session_code }}";
+      const role = "{{ role }}";
+      const userId = "{{ user_id }}";
+    
+      let socket;
+      let reconnectAttempts = 0;
+      const maxReconnectAttempts = 5;
+    
+      const connectWebSocket = () => {
+        const protocol = location.protocol === "https:" ? "wss" : "ws";
+        socket = new WebSocket(`${protocol}://${location.host}/ws/${sessionCode}/${role}/${userId}`);
+    
+        socket.onopen = () => {
+          console.log("[WebSocket] Connected");
+          reconnectAttempts = 0;
+        };
+    
+        socket.onclose = () => {
+          console.warn("[WebSocket] Disconnected");
+          attemptReconnect();
+        };
+    
+        socket.onerror = (e) => {
+          console.error("[WebSocket] Error", e);
+          socket.close(); // force close to trigger reconnect
+        };
+    
+        socket.onmessage = (event) => {
+          const msg = JSON.parse(event.data);
+    
+          if (msg.type === "presence_update") {
+            const userList = document.getElementById("user-list");
+            if (userList) {
+              userList.innerHTML = '';
+              msg.users.forEach(uid => {
+                const li = document.createElement("li");
+                li.textContent = uid;
+                userList.appendChild(li);
+              });
+            }
+            return;
+          }
+    
+          const { data, from, color } = msg;
+    
+          if (data?.type === "imagechange") {
+            imageLocked = true;
+            mainImage.src = data.src;
+    
+            const notice = document.createElement("div");
+            notice.className = "toast";
+            notice.innerText = "Image updated by administrator...";
+            document.body.appendChild(notice);
+    
+            setTimeout(() => {
+              imageLocked = false;
+              notice.remove();
+            }, 1500);
+            return;
+          }
+    
+          if (data?.type === "mousemove") {
+            let cursor = document.getElementById("cursor-" + from);
+            let label = document.getElementById("label-" + from);
+    
+            if (!cursor) {
+              cursor = document.createElement("div");
+              cursor.id = "cursor-" + from;
+              cursor.className = "cursor";
+              cursor.style.background = color || "red";
+              cursorContainer.appendChild(cursor);
+            }
+    
+            if (!label) {
+              label = document.createElement("div");
+              label.id = "label-" + from;
+              label.className = "cursor-label";
+              label.innerText = from;
+              label.style.color = color || "red";
+              cursorContainer.appendChild(label);
+            }
+    
+            cursor.style.left = data.x + 'px';
+            cursor.style.top = data.y + 'px';
+            label.style.left = (data.x + 15) + 'px';
+            label.style.top = (data.y - 5) + 'px';
+          }
+        };
+      };
+    
+      const attemptReconnect = () => {
+        if (reconnectAttempts < maxReconnectAttempts) {
+          const delay = 1000 * Math.pow(2, reconnectAttempts); // exponential backoff
+          console.log(`[WebSocket] Reconnecting in ${delay / 1000}s...`);
+          setTimeout(() => {
+            reconnectAttempts++;
+            connectWebSocket();
+          }, delay);
+        } else {
+          console.error("[WebSocket] Max reconnection attempts reached");
+        }
+      };
+    
+      const mainImage = document.getElementById("main-image");
+      const cursorContainer = document.getElementById("cursor-container");
+      let imageLocked = false;
+    
+      connectWebSocket(); // initial connect
+    
+      if (role === 'participant') {
+        document.getElementById("canvas-container").addEventListener("mousemove", (e) => {
+          if (imageLocked || socket.readyState !== WebSocket.OPEN) return;
+          const rect = mainImage.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          socket.send(JSON.stringify({ 
+            type: "mousemove", 
+            x, 
+            y, 
+            image: mainImage.src 
+          }));
+        });
+      }
+    
+      if (role === 'admin') {
+        document.querySelectorAll('.image-grid img').forEach(img => {
+          img.addEventListener('click', () => {
+            const src = img.getAttribute('data-src');
+            mainImage.src = src;
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.send(JSON.stringify({ type: "imagechange", src }));
+            }
+          });
+        });
+      }
+    </script>
+    
+  </body>
+</html>
