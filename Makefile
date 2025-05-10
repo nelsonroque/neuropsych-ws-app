@@ -6,6 +6,7 @@ VENV=.venv
 .PHONY: install run dev clean
 
 install:
+	uv venv
 	uv pip install fastapi uvicorn jinja2 uvicorn[standard]
 
 run:
