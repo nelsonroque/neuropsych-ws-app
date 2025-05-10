@@ -4,10 +4,13 @@
     <meta charset="UTF-8" />
     <title>Collaborative Canvas</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
     <style>
       body {
-        font-family: 'Inter', sans-serif;
+        font-family: "Inter", sans-serif;
       }
     </style>
   </head>
@@ -16,25 +19,48 @@
       <!-- Header -->
       <header class="bg-white shadow px-6 py-4">
         <h1 class="text-3xl font-semibold">Collaborative Canvas</h1>
-        <p class="text-sm text-gray-600 mt-1">This space lets multiple users interact with a shared image in real time. (You can edit this description!)</p>
+        <p class="text-sm text-gray-600 mt-1">
+          This space lets multiple users interact with a shared image in real
+          time. (You can edit this description!)
+        </p>
       </header>
 
       <div class="flex flex-1 overflow-hidden">
         <!-- Sidebar for Admin -->
         {% if role == 'admin' %}
-        <aside class="w-72 bg-white shadow-md flex flex-col justify-between p-4 border-r">
+        <aside
+          class="w-72 bg-white shadow-md flex flex-col justify-between p-4 border-r"
+        >
           <div>
             <h3 class="text-lg font-semibold mb-2">Select Image</h3>
             <div class="grid grid-cols-2 gap-2 image-grid mb-6">
-              <img src="/static/img1.png" data-src="/static/img1.png" class="cursor-pointer rounded border" />
-              <img src="/static/img2.png" data-src="/static/img2.png" class="cursor-pointer rounded border" />
-              <img src="/static/img3.png" data-src="/static/img3.png" class="cursor-pointer rounded border" />
-              <img src="/static/blank.png" data-src="/static/blank.png" class="cursor-pointer rounded border" />
+              <img
+                src="/static/img1.png"
+                data-src="/static/img1.png"
+                class="cursor-pointer rounded border"
+              />
+              <img
+                src="/static/img2.png"
+                data-src="/static/img2.png"
+                class="cursor-pointer rounded border"
+              />
+              <img
+                src="/static/img3.png"
+                data-src="/static/img3.png"
+                class="cursor-pointer rounded border"
+              />
+              <img
+                src="/static/blank.png"
+                data-src="/static/blank.png"
+                class="cursor-pointer rounded border"
+              />
             </div>
             <h3 class="text-lg font-semibold mb-2">Participants</h3>
-            <ul id="user-list" class="text-sm list-disc list-inside space-y-1"></ul>
+            <div id="user-list" class="flex flex-wrap gap-2"></div>
           </div>
-          <footer class="text-xs text-gray-500 mt-6 sticky bottom-0 pt-4 border-t">
+          <footer
+            class="text-xs text-gray-500 mt-6 sticky bottom-0 pt-4 border-t"
+          >
             Made with <span class="text-red-500">❤️</span> by Dr. Roque
           </footer>
         </aside>
@@ -42,12 +68,23 @@
 
         <!-- Main Canvas Area -->
         <main class="flex-1 p-4 relative">
-          <div id="canvas-container" class="relative w-full h-[calc(100vh-7rem)] bg-gray-200 rounded overflow-hidden shadow-inner">
-            <img id="main-image" src="/static/img1.png" class="absolute top-0 left-0 w-full h-full object-cover pointer-events-none" />
-            <div id="cursor-container" class="absolute inset-0 pointer-events-none"></div>
+          <div
+            id="canvas-container"
+            class="relative w-full h-[calc(100vh-7rem)] bg-gray-200 rounded overflow-hidden shadow-inner"
+          >
+            <div id="overlay" class="absolute top-0 left-0 w-full h-full">
+              <img
+                id="main-image"
+                src="/static/img1.png"
+                class="w-full h-full object-contain"
+              />
+              <div
+                id="cursor-container"
+                class="absolute top-0 left-0 w-full h-full pointer-events-none"
+              ></div>
+            </div>
           </div>
         </main>
-        
       </div>
     </div>
 
@@ -63,7 +100,9 @@
 
       const connectWebSocket = () => {
         const protocol = location.protocol === "https:" ? "wss" : "ws";
-        socket = new WebSocket(`${protocol}://${location.host}/ws/${sessionCode}/${role}/${userId}`);
+        socket = new WebSocket(
+          `${protocol}://${location.host}/ws/${sessionCode}/${role}/${userId}`
+        );
 
         socket.onopen = () => {
           console.log("[WebSocket] Connected");
@@ -86,11 +125,13 @@
           if (msg.type === "presence_update") {
             const userList = document.getElementById("user-list");
             if (userList) {
-              userList.innerHTML = '';
-              msg.users.forEach(uid => {
-                const li = document.createElement("li");
-                li.textContent = uid;
-                userList.appendChild(li);
+              userList.innerHTML = "";
+              msg.users.forEach((uid) => {
+                const badge = document.createElement("span");
+                badge.textContent = uid;
+                badge.className =
+                  "inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-800 ring-1 ring-inset ring-blue-300";
+                userList.appendChild(badge);
               });
             }
             return;
@@ -135,10 +176,10 @@
               cursorContainer.appendChild(label);
             }
 
-            cursor.style.left = data.x + 'px';
-            cursor.style.top = data.y + 'px';
-            label.style.left = (data.x + 15) + 'px';
-            label.style.top = (data.y - 5) + 'px';
+            cursor.style.left = data.x + "px";
+            cursor.style.top = data.y + "px";
+            label.style.left = data.x + 15 + "px";
+            label.style.top = data.y - 5 + "px";
           }
         };
       };
@@ -161,26 +202,31 @@
       let imageLocked = false;
 
       connectWebSocket(); // initial connect
-
-      if (role === 'participant') {
-        document.getElementById("canvas-container").addEventListener("mousemove", (e) => {
+      if (role === "participant") {
+        mainImage.addEventListener("mousemove", (e) => {
           if (imageLocked || socket.readyState !== WebSocket.OPEN) return;
+
           const rect = mainImage.getBoundingClientRect();
           const x = e.clientX - rect.left;
           const y = e.clientY - rect.top;
-          socket.send(JSON.stringify({ 
-            type: "mousemove", 
-            x, 
-            y, 
-            image: mainImage.src 
-          }));
+
+          if (x >= 0 && y >= 0 && x <= rect.width && y <= rect.height) {
+            socket.send(
+              JSON.stringify({
+                type: "mousemove",
+                x,
+                y,
+                image: mainImage.src,
+              })
+            );
+          }
         });
       }
 
-      if (role === 'admin') {
-        document.querySelectorAll('.image-grid img').forEach(img => {
-          img.addEventListener('click', () => {
-            const src = img.getAttribute('data-src');
+      if (role === "admin") {
+        document.querySelectorAll(".image-grid img").forEach((img) => {
+          img.addEventListener("click", () => {
+            const src = img.getAttribute("data-src");
             mainImage.src = src;
             if (socket.readyState === WebSocket.OPEN) {
               socket.send(JSON.stringify({ type: "imagechange", src }));
