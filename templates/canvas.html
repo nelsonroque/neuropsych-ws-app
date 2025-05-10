@@ -3,63 +3,86 @@
   <head>
     <meta charset="UTF-8" />
     <title>Collaborative Canvas</title>
-    <link rel="stylesheet" href="/static/style.css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet" />
+    <style>
+      body {
+        font-family: 'Inter', sans-serif;
+      }
+    </style>
   </head>
-  <body>
-    <div class="container">
-      {% if role == 'admin' %}
-      <aside class="sidebar">
-        <h3>Select Image</h3>
-        <div class="image-grid">
-          <img src="/static/img1.png" data-src="/static/img1.png" />
-          <img src="/static/img2.png" data-src="/static/img2.png" />
-          <img src="/static/img3.png" data-src="/static/img3.png" />
-          <img src="/static/blank.png" data-src="/static/blank.png" />
-        </div>
-        <hr />
-        <h3>Participants</h3>
-        <ul id="user-list"></ul>
-      </aside>
+  <body class="bg-gray-100 text-gray-900">
+    <div class="flex flex-col min-h-screen">
+      <!-- Header -->
+      <header class="bg-white shadow px-6 py-4">
+        <h1 class="text-3xl font-semibold">Collaborative Canvas</h1>
+        <p class="text-sm text-gray-600 mt-1">This space lets multiple users interact with a shared image in real time. (You can edit this description!)</p>
+      </header>
 
-      {% endif %}
-      <main class="canvas-area">
-        <div id="canvas-container">
-          <img id="main-image" src="/static/img1.png" />
-          <div id="cursor-container"></div>
-        </div>
-      </main>
+      <div class="flex flex-1 overflow-hidden">
+        <!-- Sidebar for Admin -->
+        {% if role == 'admin' %}
+        <aside class="w-72 bg-white shadow-md flex flex-col justify-between p-4 border-r">
+          <div>
+            <h3 class="text-lg font-semibold mb-2">Select Image</h3>
+            <div class="grid grid-cols-2 gap-2 image-grid mb-6">
+              <img src="/static/img1.png" data-src="/static/img1.png" class="cursor-pointer rounded border" />
+              <img src="/static/img2.png" data-src="/static/img2.png" class="cursor-pointer rounded border" />
+              <img src="/static/img3.png" data-src="/static/img3.png" class="cursor-pointer rounded border" />
+              <img src="/static/blank.png" data-src="/static/blank.png" class="cursor-pointer rounded border" />
+            </div>
+            <h3 class="text-lg font-semibold mb-2">Participants</h3>
+            <ul id="user-list" class="text-sm list-disc list-inside space-y-1"></ul>
+          </div>
+          <footer class="text-xs text-gray-500 mt-6 sticky bottom-0 pt-4 border-t">
+            Made with <span class="text-red-500">❤️</span> by Dr. Roque
+          </footer>
+        </aside>
+        {% endif %}
+
+        <!-- Main Canvas Area -->
+        <main class="flex-1 p-4 relative">
+          <div id="canvas-container" class="relative w-full h-[calc(100vh-7rem)] bg-gray-200 rounded overflow-hidden shadow-inner">
+            <img id="main-image" src="/static/img1.png" class="absolute top-0 left-0 w-full h-full object-cover pointer-events-none" />
+            <div id="cursor-container" class="absolute inset-0 pointer-events-none"></div>
+          </div>
+        </main>
+        
+      </div>
     </div>
+
+    <!-- Your script block remains unchanged below -->
     <script>
       const sessionCode = "{{ session_code }}";
       const role = "{{ role }}";
       const userId = "{{ user_id }}";
-    
+
       let socket;
       let reconnectAttempts = 0;
       const maxReconnectAttempts = 5;
-    
+
       const connectWebSocket = () => {
         const protocol = location.protocol === "https:" ? "wss" : "ws";
         socket = new WebSocket(`${protocol}://${location.host}/ws/${sessionCode}/${role}/${userId}`);
-    
+
         socket.onopen = () => {
           console.log("[WebSocket] Connected");
           reconnectAttempts = 0;
         };
-    
+
         socket.onclose = () => {
           console.warn("[WebSocket] Disconnected");
           attemptReconnect();
         };
-    
+
         socket.onerror = (e) => {
           console.error("[WebSocket] Error", e);
           socket.close(); // force close to trigger reconnect
         };
-    
+
         socket.onmessage = (event) => {
           const msg = JSON.parse(event.data);
-    
+
           if (msg.type === "presence_update") {
             const userList = document.getElementById("user-list");
             if (userList) {
@@ -72,29 +95,29 @@
             }
             return;
           }
-    
+
           const { data, from, color } = msg;
-    
+
           if (data?.type === "imagechange") {
             imageLocked = true;
             mainImage.src = data.src;
-    
+
             const notice = document.createElement("div");
             notice.className = "toast";
             notice.innerText = "Image updated by administrator...";
             document.body.appendChild(notice);
-    
+
             setTimeout(() => {
               imageLocked = false;
               notice.remove();
             }, 1500);
             return;
           }
-    
+
           if (data?.type === "mousemove") {
             let cursor = document.getElementById("cursor-" + from);
             let label = document.getElementById("label-" + from);
-    
+
             if (!cursor) {
               cursor = document.createElement("div");
               cursor.id = "cursor-" + from;
@@ -102,7 +125,7 @@
               cursor.style.background = color || "red";
               cursorContainer.appendChild(cursor);
             }
-    
+
             if (!label) {
               label = document.createElement("div");
               label.id = "label-" + from;
@@ -111,7 +134,7 @@
               label.style.color = color || "red";
               cursorContainer.appendChild(label);
             }
-    
+
             cursor.style.left = data.x + 'px';
             cursor.style.top = data.y + 'px';
             label.style.left = (data.x + 15) + 'px';
@@ -119,7 +142,7 @@
           }
         };
       };
-    
+
       const attemptReconnect = () => {
         if (reconnectAttempts < maxReconnectAttempts) {
           const delay = 1000 * Math.pow(2, reconnectAttempts); // exponential backoff
@@ -132,13 +155,13 @@
           console.error("[WebSocket] Max reconnection attempts reached");
         }
       };
-    
+
       const mainImage = document.getElementById("main-image");
       const cursorContainer = document.getElementById("cursor-container");
       let imageLocked = false;
-    
+
       connectWebSocket(); // initial connect
-    
+
       if (role === 'participant') {
         document.getElementById("canvas-container").addEventListener("mousemove", (e) => {
           if (imageLocked || socket.readyState !== WebSocket.OPEN) return;
@@ -153,7 +176,7 @@
           }));
         });
       }
-    
+
       if (role === 'admin') {
         document.querySelectorAll('.image-grid img').forEach(img => {
           img.addEventListener('click', () => {
@@ -166,6 +189,5 @@
         });
       }
     </script>
-    
   </body>
 </html>
